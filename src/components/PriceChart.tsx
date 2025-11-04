@@ -45,7 +45,7 @@ export const PriceChart = ({ itemName, currentPrice }: PriceChartProps) => {
           <YAxis 
             className="text-muted-foreground"
             tick={{ fontSize: 12 }}
-            label={{ value: 'Price (PKR)', angle: -90, position: 'insideLeft' }}
+            label={{ value: 'قیمت (PKR)', angle: -90, position: 'insideLeft' }}
           />
           <Tooltip
             contentStyle={{
@@ -53,7 +53,7 @@ export const PriceChart = ({ itemName, currentPrice }: PriceChartProps) => {
               border: '1px solid hsl(var(--border))',
               borderRadius: '8px',
             }}
-            formatter={(value: number) => [`PKR ${value.toFixed(2)}`, 'Price']}
+            formatter={(value: number) => [`PKR ${value.toFixed(2)}`, 'قیمت']}
           />
           <Legend />
           <Line
@@ -68,7 +68,7 @@ export const PriceChart = ({ itemName, currentPrice }: PriceChartProps) => {
         </LineChart>
       </ResponsiveContainer>
       <div className="mt-4 text-center text-sm text-muted-foreground">
-        7-day price trend showing historical variations
+        7 دن کی قیمت کی رجحان جو تاریخی تغیرات دکھاتا ہے
       </div>
     </div>
   );

@@ -1,105 +1,92 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { AuthGuard } from "@/components/AuthGuard";
-import { User } from "@supabase/supabase-js";
-import { Sprout, LogOut } from "lucide-react";
-import { toast } from "sonner";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Sprout, Shield, Tractor } from "lucide-react";
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState<User | null>(null);
-  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-    });
+    // Check if user is already logged in
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        // Navigate based on user role
+        const { data } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setUser(session?.user ?? null);
+        if (data?.role === 'admin') {
+          navigate('/admin');
+        } else if (data?.role === 'farmer') {
+          navigate('/farmer');
+        }
       }
-    );
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
-    const fetchUserRole = async () => {
-      if (!user) return;
-
-      const { data } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      setUserRole(data?.role ?? null);
     };
 
-    fetchUserRole();
-  }, [user]);
-
-  const handleSignOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast.error("Error signing out");
-    } else {
-      toast.success("Signed out successfully");
-      navigate('/auth');
-    }
-  };
+    checkSession();
+  }, [navigate]);
 
   return (
-    <AuthGuard>
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-accent/5">
-        <header className="border-b bg-card">
-          <div className="container mx-auto flex items-center justify-between px-4 py-4">
-            <div className="flex items-center gap-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary">
-                <Sprout className="h-5 w-5 text-primary-foreground" />
+    <div className="min-h-screen bg-cover bg-center bg-no-repeat p-4" style={{ backgroundImage: "url('/dbg.jpg')" }}>
+      <div className="container mx-auto max-w-4xl flex items-center justify-center min-h-screen">
+        <div className="text-center mb-8 bg-white/90 backdrop-blur-sm rounded-lg p-8 shadow-lg">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary">
+            <Sprout className="h-8 w-8 text-primary-foreground" />
+          </div>
+          <h1 className="text-4xl font-bold mb-2">سمارٹ زراعت مارکیٹ</h1>
+          <p className="text-xl text-muted-foreground">شروع کرنے کے لیے سائن ان کریں</p>
+
+          <div className="text-center mt-8">
+          <Button onClick={() => navigate('/auth')}>
+            سائن ان کریں
+          </Button>
+        </div>
+        </div>
+
+        {/* <div className="grid md:grid-cols-2 gap-6">
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate('/admin')}>
+            <CardHeader className="text-center">
+              <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
+                <Shield className="h-6 w-6 text-blue-600" />
               </div>
-              <h1 className="text-xl font-bold text-foreground">Agriculture Market Tracker</h1>
-            </div>
-            <Button variant="outline" size="sm" onClick={handleSignOut}>
-              <LogOut className="mr-2 h-4 w-4" />
-              Sign Out
-            </Button>
-          </div>
-        </header>
-
-        <main className="container mx-auto p-6">
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold">Welcome, {user?.email}</h2>
-            <p className="text-muted-foreground">
-              {userRole ? `Role: ${userRole}` : "Loading role..."}
-            </p>
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-2">
-            {userRole === 'admin' && (
-              <Button
-                onClick={() => navigate('/admin')}
-                className="h-32 text-lg"
-                size="lg"
-              >
-                Admin Dashboard
+              <CardTitle>Admin Dashboard</CardTitle>
+              <CardDescription>
+                Manage market data, users, and system settings
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center">
+              <Button className="w-full">
+                Go to Admin Dashboard
               </Button>
-            )}
-            <Button
-              onClick={() => navigate('/farmer')}
-              className="h-32 text-lg"
-              size="lg"
-              variant={userRole === 'admin' ? 'secondary' : 'default'}
-            >
-              Farmer Dashboard
-            </Button>
-          </div>
-        </main>
+            </CardContent>
+          </Card>
+
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate('/farmer')}>
+            <CardHeader className="text-center">
+              <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+                <Tractor className="h-6 w-6 text-green-600" />
+              </div>
+              <CardTitle>Farmer Dashboard</CardTitle>
+              <CardDescription>
+                View market rates, weather updates, and manage your crops
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center">
+              <Button className="w-full bg-green-600 hover:bg-green-700">
+                Go to Farmer Dashboard
+              </Button>
+            </CardContent>
+          </Card>
+        </div> */}
+
+        
       </div>
-    </AuthGuard>
+    </div>
   );
 };
 

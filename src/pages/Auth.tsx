@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Sprout } from "lucide-react";
+import { Sprout, ArrowLeft } from "lucide-react";
 import { z } from "zod";
 
 const authSchema = z.object({
@@ -20,14 +21,30 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState("");
 
   useEffect(() => {
     // Check if user is already logged in
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        navigate('/');
+        // Navigate based on user role
+        const { data } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+
+        if (data?.role === 'admin') {
+          navigate('/admin');
+        } else if (data?.role === 'farmer') {
+          navigate('/farmer');
+        }
+        // If no role or unknown role, stay on auth page
       }
-    });
+    };
+
+    checkSession();
   }, [navigate]);
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -36,9 +53,15 @@ const Auth = () => {
 
     try {
       const validated = authSchema.parse({ email, password });
-      
+
+      if (!role) {
+        toast.error("Please select a role");
+        setLoading(false);
+        return;
+      }
+
       const redirectUrl = `${window.location.origin}/`;
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: validated.email,
         password: validated.password,
         options: {
@@ -52,8 +75,21 @@ const Auth = () => {
         } else {
           toast.error(error.message);
         }
-      } else {
-        toast.success("Account created! You can now sign in.");
+      } else if (data.user) {
+        // Insert user role
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert({
+            user_id: data.user.id,
+            role: role as 'admin' | 'farmer'
+          });
+
+        if (roleError) {
+          console.error('Error inserting role:', roleError);
+          toast.error("Account created but role assignment failed. Please contact support.");
+        } else {
+          toast.success("Account created! You can now sign in.");
+        }
       }
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -70,7 +106,7 @@ const Auth = () => {
 
     try {
       const validated = authSchema.parse({ email, password });
-      
+
       const { error } = await supabase.auth.signInWithPassword({
         email: validated.email,
         password: validated.password,
@@ -79,8 +115,25 @@ const Auth = () => {
       if (error) {
         toast.error(error.message);
       } else {
-        toast.success("Welcome back!");
-        navigate('/');
+        // Navigate based on user role
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const { data } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', session.user.id)
+            .maybeSingle();
+
+          if (data?.role === 'admin') {
+            toast.success("Welcome back, Admin!");
+            navigate('/admin');
+          } else if (data?.role === 'farmer') {
+            toast.success("Welcome back, Farmer!");
+            navigate('/farmer');
+          } else {
+            toast.error("Role not found. Please contact support.");
+          }
+        }
       }
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -92,26 +145,35 @@ const Auth = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/5 to-accent/5 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-cover bg-center bg-no-repeat p-4" style={{ backgroundImage: "url('/authbg.jpg')" }}>
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/')}
+            className="absolute left-4 top-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            واپس
+          </Button>
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary">
             <Sprout className="h-6 w-6 text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl">Smart Agriculture Market</CardTitle>
-          <CardDescription>Access real-time market rates and weather updates</CardDescription>
+          <CardTitle className="text-2xl">سمارٹ زراعت مارکیٹ</CardTitle>
+          <CardDescription>ریئل ٹائم مارکیٹ ریٹس اور موسم کی اپ ڈیٹس تک رسائی حاصل کریں</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="signin" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">Sign In</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
+              <TabsTrigger value="signin">سائن ان</TabsTrigger>
+              <TabsTrigger value="signup">سائن اپ</TabsTrigger>
             </TabsList>
             
             <TabsContent value="signin">
               <form onSubmit={handleSignIn} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signin-email">Email</Label>
+                  <Label htmlFor="signin-email">ای میل</Label>
                   <Input
                     id="signin-email"
                     type="email"
@@ -122,7 +184,7 @@ const Auth = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="signin-password">Password</Label>
+                  <Label htmlFor="signin-password">پاس ورڈ</Label>
                   <Input
                     id="signin-password"
                     type="password"
@@ -133,7 +195,7 @@ const Auth = () => {
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Signing in..." : "Sign In"}
+                  {loading ? "سائن ان ہو رہا ہے..." : "سائن ان"}
                 </Button>
               </form>
             </TabsContent>
@@ -141,7 +203,7 @@ const Auth = () => {
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
+                  <Label htmlFor="signup-email">ای میل</Label>
                   <Input
                     id="signup-email"
                     type="email"
@@ -152,7 +214,7 @@ const Auth = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="signup-password">Password</Label>
+                  <Label htmlFor="signup-password">پاس ورڈ</Label>
                   <Input
                     id="signup-password"
                     type="password"
@@ -162,8 +224,20 @@ const Auth = () => {
                     required
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-role">کردار</Label>
+                  <Select value={role} onValueChange={setRole}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="اپنا کردار منتخب کریں" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">ایڈمن</SelectItem>
+                      <SelectItem value="farmer">کسان</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Creating account..." : "Sign Up"}
+                  {loading ? "اکاؤنٹ بنایا جا رہا ہے..." : "سائن اپ"}
                 </Button>
               </form>
             </TabsContent>
